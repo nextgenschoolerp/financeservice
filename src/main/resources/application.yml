@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: financeservice
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/authservice}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+server:
+  port: ${SERVER_PORT:8085}
+  servlet:
+    # All endpoints are served under http://localhost:8085/financeservice (e.g. /financeservice/api/v1/finance/fee-heads)
+    context-path: ${SERVER_CONTEXT_PATH:/financeservice}
+
+jwt:
+  secret: ${JWT_SECRET:5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437}
+  expiration: ${JWT_EXPIRATION:1800000}
+
+management:
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+    propagation:
+      consume: [w3c, b3]
+      produce: [w3c, b3]
+
+logging:
+  level:
+    root: info
+    com.kvs: debug
+    com.kvs.core.logging.RequestAndRepositoryLoggingAspect: debug
+    org.springframework.security: debug
+
+finance:
+  # "Today" for due dates, overdue status and late fees (school calendar time zone)
+  time-zone: ${FINANCE_TIME_ZONE:Asia/Kolkata}
