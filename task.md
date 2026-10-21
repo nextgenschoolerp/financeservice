@@ -1,6 +1,6 @@
 # Task Execution Record: Module 04 — Finance, Fee Schedules & Billing (first release)
 
-Execution of the `brd-to-api` skill for **Module 04** based on [`story/module4/School_ERP_Module_04_Finance_Fees_1000.md`](../story/module4/School_ERP_Module_04_Finance_Fees_1000.md), [`module4.sql`](../story/module4/module4.sql) and [`module4.md`](../story/module4/module4.md).
+Execution of the `BRD_API_Generate` skill for **Module 04** based on [`story/module4/School_ERP_Module_04_Finance_Fees_1000.md`](../story/module4/School_ERP_Module_04_Finance_Fees_1000.md), [`module4.sql`](../story/module4/module4.sql) and [`module4.md`](../story/module4/module4.md).
 
 ---
 
