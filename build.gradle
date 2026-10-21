@@ -24,7 +24,7 @@ repositories {
     mavenLocal()
     mavenCentral()
     maven {
-        url = uri(System.getenv("GPR_REPO_URL") ?: "https://maven.pkg.github.com/knowvasystems/nexus")
+        url = uri(System.getenv("GPR_REPO_URL") ?: "https://maven.pkg.github.com/nextgenschoolerp/coreservice")
         credentials {
             username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
             password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
