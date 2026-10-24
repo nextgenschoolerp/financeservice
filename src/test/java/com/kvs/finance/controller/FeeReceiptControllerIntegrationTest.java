@@ -76,7 +76,7 @@ class FeeReceiptControllerIntegrationTest extends FinanceTestSupport {
     }
 
     @Test
-    @DisplayName("US-04004: receipt PDF downloads; dispatch queues a WhatsApp message; bad number 400; class teacher 403")
+    @DisplayName("US-04004: receipt PDF downloads; dispatch sends a WhatsApp message; bad number 400; class teacher 403")
     void pdfAndDispatch() throws Exception {
         String receiptId = payAtCounter(studentA, 18000, Map.of());
         mockMvc.perform(get("/api/v1/finance/receipts/{id}/pdf", receiptId).header("Authorization", token("CHIEF_ACCOUNTANT"))
@@ -87,7 +87,7 @@ class FeeReceiptControllerIntegrationTest extends FinanceTestSupport {
                 .andExpect(content().string(startsWith("%PDF-1.4")));
         postJson("/api/v1/finance/receipts/" + receiptId + "/dispatch", token("FINANCE_CASHIER"), Map.of("channel", "WHATSAPP", "recipient", "+91 98111 00114"))
                 .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.data.status").value("QUEUED"))
+                .andExpect(jsonPath("$.data.status").value("SENT")) // kvs.notification.whatsapp.provider=LOG: logged, reported as sent
                 .andExpect(jsonPath("$.data.recipient").value("+919811100114"));
         postJson("/api/v1/finance/receipts/" + receiptId + "/dispatch", token("FINANCE_CASHIER"), Map.of("channel", "WHATSAPP", "recipient", "call me"))
                 .andExpect(status().isBadRequest());

@@ -8,6 +8,7 @@ import com.kvs.finance.dto.CounterCollectionRequest;
 import com.kvs.finance.dto.DispatchReceiptRequest;
 import com.kvs.finance.dto.ReceiptDispatchResponse;
 import com.kvs.finance.dto.ReceiptResponse;
+import org.springframework.beans.factory.annotation.Value;
 import com.kvs.finance.entity.FeeAccount;
 import com.kvs.finance.entity.FeePaymentReceipt;
 import com.kvs.finance.entity.FeeReceiptAllocation;
@@ -27,11 +28,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import com.kvs.core.notification.NotificationChannel;
+import com.kvs.core.notification.NotificationDispatchException;
+import com.kvs.core.notification.NotificationDispatcher;
+import com.kvs.core.notification.NotificationMessage;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -62,6 +68,13 @@ public class FeeCollectionService {
     @Autowired private FinanceAccess access;
     @Autowired private FinanceAuditService auditService;
     @Autowired private Clock clock;
+    @Autowired private NotificationDispatcher notifications;
+    // School details printed on e-mailed receipts (kvs.school.* in application.yml)
+    @Value("${kvs.school.name:School}") private String schoolName;
+    @Value("${kvs.school.email:}") private String schoolEmail;
+    @Value("${kvs.school.phone:}") private String schoolPhone;
+    // Approved WhatsApp template for receipts (kvs.templates.receipt in application.yml)
+    @Value("${kvs.templates.receipt:REPLACE_WITH_RECEIPT_TEMPLATE_NAME}") private String receiptTemplate;
 
     // ------------------------------------------------------------------ US-04013
 
@@ -186,7 +199,61 @@ public class FeeCollectionService {
         return findReceipt(receiptId).getReceiptNumber();
     }
 
-    /** Queues the receipt for WhatsApp / SMS / e-mail delivery (sent by Module 09 once it is connected). */
+    /**
+     * Sends the receipt by WhatsApp or e-mail through the shared notification layer. SMS has no sender yet, so it stays QUEUED.
+     * Returns the status to store: SENT, FAILED or QUEUED.
+     */
+    private String deliver(FeeReceiptDispatch dispatch, FeePaymentReceipt receipt) {
+        NotificationChannel channel = switch (dispatch.getChannel()) {
+            case WHATSAPP -> NotificationChannel.WHATSAPP;
+            case EMAIL -> NotificationChannel.EMAIL;
+            default -> null;
+        };
+        if (channel == null) {
+            return "QUEUED";
+        }
+        try {
+            NotificationMessage message = channel == NotificationChannel.EMAIL
+                    ? receiptEmail(dispatch.getRecipient(), receipt)
+                    : NotificationMessage.template(dispatch.getRecipient(), receiptTemplate, receiptParams(receipt));
+            notifications.send(channel, message);
+            return "SENT";
+        } catch (NotificationDispatchException e) {
+            log.warn("Receipt {} not delivered via {}: {}", receipt.getReceiptNumber(), channel, e.getMessage());
+            return "FAILED";
+        }
+    }
+
+    /** Subject "<School> | <Student>  <Class>, <Section> I Payment Receipt Copy.", with the receipt PDF attached. */
+    private NotificationMessage receiptEmail(String recipient, FeePaymentReceipt receipt) {
+        FeeAccount account = receipt.getAccount();
+        String classSection = Objects.toString(account.getGradeName(), "") + ", " + Objects.toString(account.getSectionName(), "");
+        String subject = schoolName + " | " + account.getStudentName() + "  " + classSection + " I Payment Receipt Copy.";
+        String body = "Dear Parent/Guardian,\n\n"
+                + "Please find attached the payment receipt copy for " + account.getStudentName() + ".\n\n"
+                + "Receipt number: " + receipt.getReceiptNumber() + "\n"
+                + "Amount paid: INR " + receipt.getTotalAmountPaid().toPlainString() + "\n"
+                + "Date: " + receiptDate(receipt) + "\n\n"
+                + "Regards,\n"
+                + schoolName + "\n"
+                + "Email: " + schoolEmail + "\n"
+                + "Phone: " + schoolPhone + "\n";
+        byte[] pdf = pdfWriter.write(receipt, clock.getZone());
+        return new NotificationMessage(recipient, subject, body, List.of(
+                new NotificationMessage.Attachment("Receipt-" + receipt.getReceiptNumber() + ".pdf", "application/pdf", pdf)));
+    }
+
+    /** Values for the approved WhatsApp receipt template, in placeholder order: school, student, receipt no., amount, date. */
+    private List<String> receiptParams(FeePaymentReceipt receipt) {
+        return List.of(schoolName, receipt.getAccount().getStudentName(), receipt.getReceiptNumber(),
+                "INR " + receipt.getTotalAmountPaid().toPlainString(), receiptDate(receipt));
+    }
+
+    private String receiptDate(FeePaymentReceipt receipt) {
+        return receipt.getPaymentTimestamp().atZone(clock.getZone()).toLocalDate().toString();
+    }
+
+    /** Sends the receipt by WhatsApp, e-mail or SMS (SMS is only queued). */
     public ReceiptDispatchResponse dispatch(UUID receiptId, DispatchReceiptRequest request) {
         FeePaymentReceipt receipt = findReceipt(receiptId);
         String recipient = request.getRecipient().trim();
@@ -206,6 +273,7 @@ public class FeeCollectionService {
         dispatch.setRecipient(request.getChannel() == DispatchChannel.EMAIL ? recipient : recipient.replace(" ", ""));
         dispatch.setRequestedBy(access.currentUser());
         dispatch.setRequestedAt(Instant.now(clock));
+        dispatch.setStatus(deliver(dispatch, receipt));
         dispatch = dispatchRepository.save(dispatch);
         auditService.logSuccess("FeeReceipt:" + receiptId, "FEE_RECEIPT_DISPATCH_QUEUED",
                 receipt.getReceiptNumber() + " via " + dispatch.getChannel() + " to " + dispatch.getRecipient());
