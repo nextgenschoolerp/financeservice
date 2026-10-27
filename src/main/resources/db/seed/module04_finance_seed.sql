@@ -71,7 +71,7 @@ INSERT INTO seed_staff VALUES
 
 INSERT INTO users (user_id, tenant_id, branch_id, username, first_name, last_name, email, phone_number, user_type, is_active, is_mfa_enabled,
                    created_at, updated_at, created_by, updated_by, version)
-SELECT user_id, 'a0eEBc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'DPS-DELHI-NORTH', username, first_name, last_name, email, phone, user_type, true, false,
+SELECT user_id, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'DPS-DELHI-NORTH', username, first_name, last_name, email, phone, user_type, true, false,
        created_at, created_at, 'seed:module04', NULL, 0
 FROM seed_staff;
 
@@ -93,7 +93,7 @@ SELECT '5eed0001-0001-4000-8000-000000000001', 'TRUST_TREASURER', TIMESTAMPTZ '2
 -- ---------------------------------------------------------------------------------------------------
 INSERT INTO fee_heads (fee_head_id, tenant_id, head_code, head_name, category, is_recurring, ledger_code, ledger_name, is_active,
                        created_at, updated_at, created_by, updated_by, version)
-SELECT ('5eed0004-0001-4000-8000-0000000000' || h.n)::uuid, 'a0eEBc99-9c0b-4ef8-bb6d-6bb9bd380a11', h.code, h.name, h.category, h.recurring,
+SELECT ('5eed0004-0001-4000-8000-0000000000' || h.n)::uuid, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', h.code, h.name, h.category, h.recurring,
        h.ledger_code, h.ledger_name, true, TIMESTAMPTZ '2026-03-02 05:00:00+00', TIMESTAMPTZ '2026-03-02 05:00:00+00', 'seed:module04', NULL, 0
 FROM (VALUES
     ('01', 'TUITION',   'Tuition Fee',           'TUITION',     true,  '4100-TUITION',   'Tuition Fee Income'),
@@ -117,7 +117,7 @@ FROM grades g WHERE g.grade_id::text LIKE '5eed0003-0002-%';
 
 INSERT INTO fee_schedules (schedule_id, tenant_id, branch_id, academic_year, grade_id, grade_name, schedule_name,
                            created_at, updated_at, created_by, updated_by, version)
-SELECT ('5eed0004-0002-4000-8000-0000000000' || lpad(seq::text, 2, '0'))::uuid, 'a0eEBc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'DPS-DELHI-NORTH',
+SELECT ('5eed0004-0002-4000-8000-0000000000' || lpad(seq::text, 2, '0'))::uuid, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'DPS-DELHI-NORTH',
        '2026-2027', grade_id, grade_name, grade_name || ' fees 2026-2027',
        TIMESTAMPTZ '2026-03-05 05:00:00+00', TIMESTAMPTZ '2026-03-05 05:00:00+00', 'seed:module04', NULL, 0
 FROM seed_grade;
@@ -165,11 +165,11 @@ SELECT row_number() OVER (ORDER BY s.student_uid) AS rn, s.student_id, s.student
 FROM student_master s
 JOIN seed_grade g ON g.grade_id = s.grade_id
 LEFT JOIN sections sc ON sc.section_id = s.section_id
-WHERE s.tenant_id = 'a0eEBc99-9c0b-4ef8-bb6d-6bb9bd380a11' AND s.branch_id = 'DPS-DELHI-NORTH' AND s.student_status = 'ACTIVE';
+WHERE s.tenant_id = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' AND s.branch_id = 'DPS-DELHI-NORTH' AND s.student_status = 'ACTIVE';
 
 INSERT INTO fee_accounts (account_id, tenant_id, branch_id, student_id, student_uid, student_name, grade_name, section_name,
                           parent_account_id, academic_year, created_at, updated_at, created_by, updated_by, version)
-SELECT ('5eed0004-0004-4000-8000-0000000000' || lpad(rn::text, 2, '0'))::uuid, 'a0eEBc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'DPS-DELHI-NORTH',
+SELECT ('5eed0004-0004-4000-8000-0000000000' || lpad(rn::text, 2, '0'))::uuid, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'DPS-DELHI-NORTH',
        student_id, student_uid, student_name, grade_name, section_name, parent_account_id, '2026-2027',
        TIMESTAMPTZ '2026-03-20 05:00:00+00', TIMESTAMPTZ '2026-03-20 05:00:00+00', 'seed:module04', NULL, 0
 FROM seed_account;
@@ -216,7 +216,7 @@ INSERT INTO fee_payment_receipts (receipt_id, tenant_id, branch_id, account_id, 
                                   instrument_number, bank_name, instrument_date, payer_name, remarks, gateway_transaction_id,
                                   payment_timestamp, collected_by, receipt_status, bounced_at, bounced_by, bounce_reason, bounce_charge,
                                   tally_synced, created_at, updated_at, created_by, updated_by, version)
-SELECT r.receipt_id, 'a0eEBc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'DPS-DELHI-NORTH',
+SELECT r.receipt_id, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'DPS-DELHI-NORTH',
        ('5eed0004-0004-4000-8000-0000000000' || lpad(r.rn::text, 2, '0'))::uuid, r.receipt_number, r.amount, r.mode,
        CASE r.mode WHEN 'CHEQUE' THEN CASE WHEN r.student_uid = 'STU-2020-00027' THEN '004512' ELSE lpad((100000 + r.rn * 37 + r.bucket)::text, 6, '0') END END,
        CASE r.mode WHEN 'CHEQUE' THEN CASE r.rn % 3 WHEN 0 THEN 'State Bank of India' WHEN 1 THEN 'HDFC Bank' ELSE 'ICICI Bank' END END,
@@ -249,7 +249,7 @@ WHERE NOT (l.plan = 'PARTIAL' AND l.bucket = 2 AND l.ll <> '02');
 INSERT INTO student_fee_ledgers (ledger_id, tenant_id, account_id, schedule_id, schedule_line_id, fee_head_id, installment_label, due_date,
                                  base_amount, concession_amount, late_fine_amount, paid_amount, payment_status,
                                  created_at, updated_at, created_by, updated_by, version)
-SELECT l.ledger_id, 'a0eEBc99-9c0b-4ef8-bb6d-6bb9bd380a11', l.account_id, l.schedule_id, l.line_id, l.fee_head_id, l.label, l.due_date,
+SELECT l.ledger_id, 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', l.account_id, l.schedule_id, l.line_id, l.fee_head_id, l.label, l.due_date,
        l.amount, 0, l.fine, l.paid,
        CASE WHEN l.amount + l.fine - l.paid <= 0 THEN 'PAID'
             WHEN l.due_date < CURRENT_DATE THEN 'OVERDUE'
