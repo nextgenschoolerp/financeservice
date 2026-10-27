@@ -18,6 +18,7 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 jobs:
   pipeline:
@@ -85,3 +86,28 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      # Amazon ECR is what the EKS manifests pull from. Set the repository variable AWS_ROLE_ARN to the IAM role
+      # GitHub may assume (OIDC, no stored keys); without it these steps are skipped.
+      - name: Configure AWS credentials
+        id: aws
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && vars.AWS_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        if: steps.aws.outcome == 'success'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Publish Image to ECR
+        if: steps.aws.outcome == 'success'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/schoolerp/financeservice:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/schoolerp/financeservice:latest
