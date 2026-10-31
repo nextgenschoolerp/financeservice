@@ -1,4 +1,5 @@
 spring:
+  # No longer used for email: email is sent through Settings → Integrations (kvs.integrations below). Kept for the shared notification layer.
   mail:
     host: ${SMTP_HOST:smtp.gmail.com}
     port: ${SMTP_PORT:587}
@@ -67,13 +68,20 @@ finance:
   time-zone: ${FINANCE_TIME_ZONE:Asia/Kolkata}
 
 kvs:
+  # Email goes through Settings → Integrations (authservice): this service's own mailbox, else the school's main email account.
+  integrations:
+    auth-url: ${AUTH_SERVICE_URL:http://localhost:8082/authservice}
+  internal:
+    # same value as authservice kvs.internal.key: lets a scheduled job send without a signed-in user
+    key: ${KVS_INTERNAL_KEY:schoolerp-dev-internal-key}
   templates:
     # Approved WhatsApp template name for fee receipts. Placeholders in order: school, student, receipt no., amount, date
     receipt: ${WHATSAPP_RECEIPT_TEMPLATE:REPLACE_WITH_RECEIPT_TEMPLATE_NAME}
+  # Fallback only: receipt messages use Settings → General → School profile
   school:
-    name: ${SCHOOL_NAME:Oakridge ACADEMY}
-    email: ${SCHOOL_EMAIL:office@oakridge.ac.uk}
-    phone: ${SCHOOL_PHONE:+44 1865 555 100}
+    name: ${SCHOOL_NAME:School}
+    email: ${SCHOOL_EMAIL:}
+    phone: ${SCHOOL_PHONE:}
   # Shared WhatsApp/email provider settings (ms-core com.kvs.core.notification). LOG = log only, no message is sent.
   notification:
     whatsapp:

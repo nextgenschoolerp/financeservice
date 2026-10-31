@@ -69,7 +69,8 @@ public class FeeCollectionService {
     @Autowired private FinanceAuditService auditService;
     @Autowired private Clock clock;
     @Autowired private NotificationDispatcher notifications;
-    // School details printed on e-mailed receipts (kvs.school.* in application.yml)
+    @Autowired private SchoolMailClient schoolMail;
+    // Fallback school details for receipt messages when the School profile cannot be read (kvs.school.* in application.yml)
     @Value("${kvs.school.name:School}") private String schoolName;
     @Value("${kvs.school.email:}") private String schoolEmail;
     @Value("${kvs.school.phone:}") private String schoolPhone;
@@ -200,10 +201,19 @@ public class FeeCollectionService {
     }
 
     /**
-     * Sends the receipt by WhatsApp or e-mail through the shared notification layer. SMS has no sender yet, so it stays QUEUED.
-     * Returns the status to store: SENT, FAILED or QUEUED.
+     * Sends the receipt. E-mail goes through Settings → Integrations (the Finance mailbox, else the school's main account);
+     * WhatsApp through the shared notification layer; SMS has no sender yet, so it stays QUEUED.
+     * Returns the status to store: SENT, FAILED or QUEUED (and sets the dispatch's status detail for e-mail).
      */
     private String deliver(FeeReceiptDispatch dispatch, FeePaymentReceipt receipt) {
+        if (dispatch.getChannel() == DispatchChannel.EMAIL) {
+            NotificationMessage m = receiptEmail(dispatch.getRecipient(), receipt);
+            SchoolMailClient.Outcome o = schoolMail.send(receipt.getTenantId(), m.recipient(), m.subject(), m.body(),
+                    m.attachments().stream().map(a -> new SchoolMailClient.Attachment(a.filename(), a.contentType(), a.content())).toList(),
+                    "receipt " + receipt.getReceiptNumber());
+            dispatch.setStatusDetail(o.detail());
+            return o.status().equals("SENT") ? "SENT" : "FAILED";
+        }
         NotificationChannel channel = switch (dispatch.getChannel()) {
             case WHATSAPP -> NotificationChannel.WHATSAPP;
             case EMAIL -> NotificationChannel.EMAIL;
@@ -224,20 +234,27 @@ public class FeeCollectionService {
         }
     }
 
+    /** The school's name, email and phone: Settings → School profile, else kvs.school.* in application.yml */
+    private SchoolMailClient.SchoolProfile school(FeePaymentReceipt receipt) {
+        SchoolMailClient.SchoolProfile p = schoolMail.schoolProfile(receipt.getTenantId());
+        return p != null ? p : new SchoolMailClient.SchoolProfile(schoolName, schoolEmail, schoolPhone);
+    }
+
     /** Subject "<School> | <Student>  <Class>, <Section> I Payment Receipt Copy.", with the receipt PDF attached. */
     private NotificationMessage receiptEmail(String recipient, FeePaymentReceipt receipt) {
         FeeAccount account = receipt.getAccount();
+        SchoolMailClient.SchoolProfile school = school(receipt);
         String classSection = Objects.toString(account.getGradeName(), "") + ", " + Objects.toString(account.getSectionName(), "");
-        String subject = schoolName + " | " + account.getStudentName() + "  " + classSection + " I Payment Receipt Copy.";
+        String subject = school.name() + " | " + account.getStudentName() + "  " + classSection + " I Payment Receipt Copy.";
         String body = "Dear Parent/Guardian,\n\n"
                 + "Please find attached the payment receipt copy for " + account.getStudentName() + ".\n\n"
                 + "Receipt number: " + receipt.getReceiptNumber() + "\n"
                 + "Amount paid: INR " + receipt.getTotalAmountPaid().toPlainString() + "\n"
                 + "Date: " + receiptDate(receipt) + "\n\n"
                 + "Regards,\n"
-                + schoolName + "\n"
-                + "Email: " + schoolEmail + "\n"
-                + "Phone: " + schoolPhone + "\n";
+                + school.name() + "\n"
+                + (school.email().isBlank() ? "" : "Email: " + school.email() + "\n")
+                + (school.phone().isBlank() ? "" : "Phone: " + school.phone() + "\n");
         byte[] pdf = pdfWriter.write(receipt, clock.getZone());
         return new NotificationMessage(recipient, subject, body, List.of(
                 new NotificationMessage.Attachment("Receipt-" + receipt.getReceiptNumber() + ".pdf", "application/pdf", pdf)));
@@ -245,7 +262,7 @@ public class FeeCollectionService {
 
     /** Values for the approved WhatsApp receipt template, in placeholder order: school, student, receipt no., amount, date. */
     private List<String> receiptParams(FeePaymentReceipt receipt) {
-        return List.of(schoolName, receipt.getAccount().getStudentName(), receipt.getReceiptNumber(),
+        return List.of(school(receipt).name(), receipt.getAccount().getStudentName(), receipt.getReceiptNumber(),
                 "INR " + receipt.getTotalAmountPaid().toPlainString(), receiptDate(receipt));
     }
 
@@ -279,7 +296,7 @@ public class FeeCollectionService {
                 receipt.getReceiptNumber() + " via " + dispatch.getChannel() + " to " + dispatch.getRecipient());
         return ReceiptDispatchResponse.builder()
                 .dispatchId(dispatch.getDispatchId()).receiptId(receiptId).receiptNumber(receipt.getReceiptNumber())
-                .channel(dispatch.getChannel()).recipient(dispatch.getRecipient()).status(dispatch.getStatus())
+                .channel(dispatch.getChannel()).recipient(dispatch.getRecipient()).status(dispatch.getStatus()).statusDetail(dispatch.getStatusDetail())
                 .requestedBy(dispatch.getRequestedBy()).requestedAt(dispatch.getRequestedAt())
                 .build();
     }
