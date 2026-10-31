@@ -38,6 +38,10 @@ public class FeeReceiptDispatch extends BaseAuditEntity {
     @Column(name = "status", nullable = false, length = 20)
     private String status = "QUEUED";
 
+    /** Why it was not sent, or which mailbox sent it (email through Settings → Integrations) */
+    @Column(name = "status_detail", length = 500)
+    private String statusDetail;
+
     @Column(name = "requested_by", length = 150)
     private String requestedBy;
 

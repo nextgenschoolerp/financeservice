@@ -30,6 +30,21 @@ public class TenantAccessGuard {
     private ObjectMapper objectMapper;
 
     /** True when the caller is a super administrator. */
+    /**
+     * A campus check: a caller whose token names a branch may only read that branch. Super administrators and trustees
+     * (who oversee every campus of the school) are exempt. A token without a branch claim is not limited here.
+     */
+    public void requireBranch(String branchId) {
+        if (branchId == null || isSuperAdmin() || SecurityUtils.getCurrentUserRoles().stream().anyMatch(r -> r.equals("ROLE_TRUSTEE") || r.equals("ROLE_TRUST_TREASURER")
+                )) {
+            return;
+        }
+        boolean otherCampus = claim("branchId").map(mine -> !mine.equalsIgnoreCase(branchId)).orElse(false);
+        if (otherCampus) {
+            throw new ForbiddenException("You may only access records of your own campus");
+        }
+    }
+
     public boolean isSuperAdmin() {
         return SecurityUtils.getCurrentUserRoles().contains("ROLE_SUPER_ADMIN");
     }

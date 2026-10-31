@@ -22,6 +22,8 @@ public class ReceiptDispatchResponse {
     private DispatchChannel channel;
     private String recipient;
     private String status;
+    /** why it was not sent, or which mailbox sent it */
+    private String statusDetail;
     private String requestedBy;
     private Instant requestedAt;
 }
