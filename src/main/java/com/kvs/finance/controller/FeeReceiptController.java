@@ -76,6 +76,8 @@ public class FeeReceiptController {
         if (access.isParentOnly()) {
             throw new ForbiddenException("Parents can only list their own children's receipts");
         }
+        FinanceAccess.requireBranch(branchId);
+        access.requireCampus(branchId);
         return ResponseEntity.ok(ApiResponse.success(collectionService.listForBranch(tenantId, branchId, from, to)));
     }
 

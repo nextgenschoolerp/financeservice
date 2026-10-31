@@ -42,6 +42,11 @@ public class FinanceAccess {
         return branchId;
     }
 
+    /** A campus the caller may read (see TenantAccessGuard.requireBranch) */
+    public void requireCampus(String branchId) {
+        tenantGuard.requireBranch(branchId);
+    }
+
     public void requireTenantRecord(String tenantId, String resource, String field, Object value) {
         tenantGuard.requireTenantRecord(tenantId, resource, field, value);
     }
